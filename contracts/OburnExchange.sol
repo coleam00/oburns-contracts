@@ -115,4 +115,20 @@ contract OburnExchange is Pausable, Ownable {
         require(tokenAddress != address(0), "Token address cannot be the 0 address.");
         withdrawTokens(IERC20(tokenAddress), IERC20(tokenAddress).balanceOf(address(this)));
     }
+
+    /**
+    @dev Only owner function to change the reference to the TBURN token.
+    @param newTBURN reference to the new TBURN token
+    */
+    function updateTBURNTokenReference(IERC20 newTBURN) external onlyOwner {
+        _tburn = newTBURN;
+    }
+
+    /**
+    @dev Only owner function to change the reference to the OBURN token.
+    @param newOBURN reference to the new OBURN token
+    */
+    function updateOBURNTokenReference(IERC20 newOBURN) external onlyOwner {
+        _oburn = newOBURN;
+    }
 }
