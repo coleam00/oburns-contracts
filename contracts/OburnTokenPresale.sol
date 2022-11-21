@@ -391,6 +391,22 @@ contract OburnTokenPresale is ReentrancyGuard, Context, Ownable {
     }
 
     /**
+    @dev Only owner function to change the token being sold.
+    @param newTokenAddress reference to the new token being sold
+    */
+    function updateTokenReference(IERC20 newTokenAddress) external onlyOwner {
+        _token = newTokenAddress;
+    }
+
+    /**
+    @dev Only owner function to change the reference to the USDC token.
+    @param newUSDCReference reference to the new USDC token
+    */
+    function updateUSDCReference(IERC20 newUSDCReference) external onlyOwner {
+        _usdc = newUSDCReference;
+    }
+
+    /**
      * @dev onlyOwner
      */
     function isAddressWhitelisted(address user) external view onlyOwner returns (bool) {
