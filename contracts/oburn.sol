@@ -64,7 +64,9 @@ contract OnlyBurns is ERC20, Ownable {
     
     mapping (address => bool) public _dexSwapAddresses;
     mapping (address => bool) private _addressesExemptFromFees;
+    mapping (address => bool) private _blacklistedAddresses;
 
+    bool private _dexTradingEnabled = false;
     bool private _tradingEnabled = false;
     uint private _blockAtEnableTrading;
 
@@ -82,13 +84,21 @@ contract OnlyBurns is ERC20, Ownable {
     event UpdateSellFee(uint indexed previousSellFee, uint indexed newSellFee);
     event ExemptAddressFromFees(address indexed newAddress, bool indexed value);
     event AddDexSwapAddress(address indexed pairAddress, bool indexed value);
+    event AddOrRemoveUserFromBlacklist(address indexed user, bool indexed blacklisted);
+    event dexTradingEnabledOrDisabled(bool indexed enabled);
 
     // Modifier
 
     modifier canTransfer(address sender, address recipient) {        
         require(sender != address(0), "Transfer from the zero address");
         require(recipient != address(0), "Transfer to the zero address");
+        require(!_blacklistedAddresses[sender], "Sender is blacklisted from trading.");
+        require(!_blacklistedAddresses[recipient], "Recipient is blacklisted from trading.");
         require(_tradingEnabled || sender == owner() || getAddressExemptFromFees(sender), "Trading is not enabled");
+        
+        if (!_dexTradingEnabled) {
+            require((!_dexSwapAddresses[sender] || _addressesExemptFromFees[recipient]) && (_addressesExemptFromFees[sender] || !_dexSwapAddresses[recipient]), "DEX Trading is currently disabled. You must trade directly through the Only Burns DApp.");
+        }
 
         if(block.number > _blockAtEnableTrading + 3 || sender == owner() || getAddressExemptFromFees(sender)) {
             _;
@@ -178,12 +188,24 @@ contract OnlyBurns is ERC20, Ownable {
         emit EnableTrading();
     }
 
+    function enableOrDisableDEXTrading(bool dexTradingEnabled) public onlyOwner {
+        require(_dexTradingEnabled != dexTradingEnabled, "DEX Trading is already set to the value (true or false) supplied.");
+        _dexTradingEnabled = dexTradingEnabled;
+        emit dexTradingEnabledOrDisabled(dexTradingEnabled);
+    }
+
     function exemptAddressFromFees(address excludedAddress, bool value) public onlyOwner {
         require(_addressesExemptFromFees[excludedAddress] != value, "Already set to this value");
 
         _addressesExemptFromFees[excludedAddress] = value;
 
         emit ExemptAddressFromFees(excludedAddress, value);
+    }
+
+    function blacklistOrUnblacklistUser(address user, bool blacklist) public onlyOwner {
+        require(user != address(0), "Blacklist user cannot be the zero address.");
+        _blacklistedAddresses[user] = blacklist;
+        emit AddOrRemoveUserFromBlacklist(user, blacklist);
     }
 
     function getAddressExemptFromFees(address excludedAddress) public view returns (bool) {
