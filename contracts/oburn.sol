@@ -49,9 +49,9 @@ pragma solidity 0.8.13;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-// import "@uniswapperiphery/contracts/interfaces/IUniswapV2Router02.sol";
-// import "@uniswapcore/contracts/interfaces/IUniswapV2Factory.sol";
-import "../interfaces/Uniswap.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+// import "../interfaces/Uniswap.sol";
 
 contract OnlyBurns is ERC20, Ownable {
     using Address for address;
