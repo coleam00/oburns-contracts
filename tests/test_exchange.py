@@ -12,7 +12,7 @@ def test_users_can_exchange():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account2.address, USDC.address)
 
     tburnAmount = Web3.toWei(100, "ether")
@@ -35,7 +35,7 @@ def test_owner_can_withdraw_tburn_and_oburn():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account2.address, USDC.address)
 
     tburnAmount = Web3.toWei(100, "ether")
@@ -64,7 +64,7 @@ def test_owner_can_rescue_tokens():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account2.address, USDC.address)
 
     usdcAmount = Web3.toWei(100, "ether")
@@ -86,7 +86,7 @@ def test_owner_can_pause_and_unpause_exchange():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account2.address, USDC.address)
 
     tburnAmount = Web3.toWei(655, "ether")
@@ -118,7 +118,7 @@ def test_users_must_approve_tburn():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account2.address, USDC.address)
 
     tburnAmount = Web3.toWei(100, "ether")

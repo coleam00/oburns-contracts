@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title Generic token smart contract for PreSend testing
  */
-contract GenericToken is ERC20, Ownable {
+contract MockToken is ERC20, Ownable {
     constructor() ERC20("GenericToken", "GNRC") {
         _mint(msg.sender, 10 ** 40);
     }

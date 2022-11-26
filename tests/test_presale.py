@@ -13,7 +13,7 @@ def test_deployments():
     account2 = get_account(2)
 
     # Act
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account2.address, USDC.address)
 
     # Assert
@@ -27,7 +27,7 @@ def test_user_can_purchase_OBURN_in_whitelist_presale():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account.address, USDC.address)
 
     presaleOburnAmount = Web3.toWei(1000000000000000, "ether")
@@ -58,7 +58,7 @@ def test_user_can_purchase_OBURN_in_public_presale():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account.address, USDC.address)
 
     presaleOburnAmount = Web3.toWei(1000000000000000, "ether")
@@ -90,7 +90,7 @@ def test_owner_can_update_parameters_for_presale():
     account2 = get_account(2)
     account3 = get_account(3)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account.address, USDC.address)
 
     presaleOburnAmount = Web3.toWei(1000000000000000, "ether")
@@ -143,7 +143,7 @@ def test_owner_can_end_sale():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account.address, USDC.address)
 
     presaleOburnAmount = Web3.toWei(1000000000000000, "ether")
@@ -178,7 +178,7 @@ def test_user_must_approve_usdc():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account.address, USDC.address)
 
     presaleOburnAmount = Web3.toWei(1000000000000000, "ether")
@@ -201,7 +201,7 @@ def test_user_cant_purchase_above_cap():
     account = get_account()
     account2 = get_account(2)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account.address, USDC.address)
 
     presaleOburnAmount = Web3.toWei(1000000000000000, "ether")
@@ -239,7 +239,7 @@ def test_owner_cant_update_parameters_after_presale_starts():
     account2 = get_account(2)
     account3 = get_account(3)
 
-    TBURN, OBURN, USDC = deploy_mocks()
+    TBURN, OBURN, USDC, _, _ = deploy_mocks()
     oburnTokenPresale, oburnExchange = deploy_presale_and_exchange(TBURN.address, OBURN.address, account.address, USDC.address)
 
     presaleOburnAmount = Web3.toWei(1000000000000000, "ether")

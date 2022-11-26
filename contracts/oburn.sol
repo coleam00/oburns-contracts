@@ -43,14 +43,15 @@
  *  Discord: https://discord.gg/onlyburns
 **/
 
-pragma solidity 0.8.12;
+pragma solidity 0.8.13;
 
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+// import "@uniswapperiphery/contracts/interfaces/IUniswapV2Router02.sol";
+// import "@uniswapcore/contracts/interfaces/IUniswapV2Factory.sol";
+import "../interfaces/Uniswap.sol";
 
 contract OnlyBurns is ERC20, Ownable {
     using Address for address;
@@ -74,6 +75,7 @@ contract OnlyBurns is ERC20, Ownable {
     address public quickSwapPair;
     address private _routerAddress = 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff; // Quickswap
     address private _serviceWallet = 0x5e1027D4c3e991823Cf30d1f9051E9DB91e2B45C;
+    address private _usdc = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
     address private constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
     event EnableTrading();
@@ -113,7 +115,11 @@ contract OnlyBurns is ERC20, Ownable {
     }
 
     // Constructor
-    constructor() ERC20("OnlyBurns", "OBURN") {
+    constructor(address initRouterAddress, address initServiceWallet, address initUSDCAddress) ERC20("OnlyBurns", "OBURN") {
+        _routerAddress = initRouterAddress;
+        _serviceWallet = initServiceWallet;
+        _usdc = initUSDCAddress;
+
         initPair();
 
         exemptAddressFromFees(owner(), true);
@@ -160,7 +166,7 @@ contract OnlyBurns is ERC20, Ownable {
         IUniswapV2Router02 _quickSwapRouter = IUniswapV2Router02(_routerAddress);
         address _quickSwapPair = IUniswapV2Factory(_quickSwapRouter.factory()).createPair(
             address(this), 
-            _quickSwapRouter.WETH()
+            _usdc
         );
 
         quickSwapPair = _quickSwapPair;
@@ -262,7 +268,7 @@ contract OnlyBurns is ERC20, Ownable {
 
     function updateBuyFee(uint8 value) public onlyOwner returns(uint8, uint8) {
         require(!_buyFeePermanentlyDisabled, "Buy fee is permanently disabled");
-        require(value <= 4, "Cannot be higher than 10");
+        require(value <= 10, "Cannot be higher than 10");
         require(value < _buyFee, "Cannot increase the fee");
 
         _previousBuyFee = _buyFee;
@@ -289,7 +295,7 @@ contract OnlyBurns is ERC20, Ownable {
 
     function updateSellFee(uint8 value) public onlyOwner returns(uint8, uint8) {
         require(!_sellFeePermanentlyDisabled, "Sell fee is permanently disabled");
-        require(value <= 2, "Cannot be higher than 10");
+        require(value <= 10, "Cannot be higher than 10");
         require(value < _sellFee, "Cannot increase the fee");
 
         _previousSellFee = _sellFee;
