@@ -44,9 +44,9 @@ contract OburnTokenPresale is ReentrancyGuard, Context, Ownable {
     uint256 private _whitelistSaleOburnSold;
     uint256 private _publicSaleOburnSold;
     uint256 private _whitelistSaleOburnCap = 25000000000 ether; // max Oburn available (WL)
-    uint256 private _whitelistSaleRate = 500000 * (10 ** 12); // Oburn per the smallest amount of USDC ($0.000001) (WL)
+    uint256 private _whitelistSaleRate = 500000 * (10 ** 12); // Oburn per the smallest amount of USDC ($0.000002) (WL)
     uint256 private _publicSaleOburnCap = 130000000000 ether; // max Oburn available (public)
-    uint256 private _publicSaleRate = 250000 * (10 ** 12); // Oburn per the smallest amount of USDC ($0.000001) (public)
+    uint256 private _publicSaleRate = 250000 * (10 ** 12); // Oburn per the smallest amount of USDC ($0.000004) (public)
     uint256 private _maxOburnPerAddress = 1250000000 ether; // max Oburn spend per adddress
 
     /**

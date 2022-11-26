@@ -126,7 +126,7 @@ contract OnlyBurns is ERC20, Ownable {
         exemptAddressFromFees(address(this), true);
         exemptAddressFromFees(_serviceWallet, true);
 
-        _mint(owner(), (1 * 10**13) * (10**18));
+        _mint(owner(), (1 * 10**12) * (10**18));
     }
 
     // Receive function
