@@ -210,12 +210,17 @@ contract OnlyBurns is ERC20, Ownable {
 
     function blacklistOrUnblacklistUser(address user, bool blacklist) public onlyOwner {
         require(user != address(0), "Blacklist user cannot be the zero address.");
+        require(_blacklistedAddresses[user] != blacklist, "Already set to this value.");
         _blacklistedAddresses[user] = blacklist;
         emit AddOrRemoveUserFromBlacklist(user, blacklist);
     }
 
     function getAddressExemptFromFees(address excludedAddress) public view returns (bool) {
         return _addressesExemptFromFees[excludedAddress];
+    }
+
+    function getAddressBlacklisted(address blacklistedAddress) public view returns (bool) {
+        return _blacklistedAddresses[blacklistedAddress];
     }
 
     function getDexSwapAddress(address pairAddress) public view onlyOwner returns (bool) {
