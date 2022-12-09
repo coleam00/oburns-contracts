@@ -14,7 +14,8 @@ VERIFY_NETWORKS = [
     "ethereum",
     "fantom",
     "avalanche",
-    "binance-testnet"
+    "binance-testnet",
+    "polygon-test-custom"
 ]
 
 

@@ -51,7 +51,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-// import "../interfaces/Uniswap.sol";
 
 contract OnlyBurns is ERC20, Ownable {
     using Address for address;

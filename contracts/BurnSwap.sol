@@ -9,9 +9,8 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "./oburn.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-// import "../interfaces/Uniswap.sol";
 
-contract OburnDEX is Pausable, Ownable {
+contract BurnSwap is Pausable, Ownable {
     // Mapping to determine which addresses are exempt from the USDC fee taken upon buys and sells in this contract.
     mapping (address => bool) private _addressesExemptFromFees;
 
@@ -48,8 +47,8 @@ contract OburnDEX is Pausable, Ownable {
     // Event to emit whenever OBURN is sold for USDC.
     event oburnSell(address indexed user, uint256 oburnAmount, uint256 usdcAmount);
 
-    constructor(address initRouterAddress, address initOBURNPairAddress, address initOBURNAddress, address initUSDCAddress) {
-        quickSwapRouter = IUniswapV2Router02(_routerAddress);
+    constructor(address initRouterAddress, address initOBURNPairAddress, address payable initOBURNAddress, address initUSDCAddress) {
+        quickSwapRouter = IUniswapV2Router02(initRouterAddress);
         quickSwapPair = initOBURNPairAddress;
         _oburn = OnlyBurns(initOBURNAddress);
         _usdc = IERC20(initUSDCAddress);
@@ -69,14 +68,15 @@ contract OburnDEX is Pausable, Ownable {
         require(amountOBURN > 0 || amountUSDC > 0, "Either the amount of OBURN to buy or the amount of USDC to sell must be specified.");
 
         address[] memory path = new address[](2);
-        path[0] = address(_oburn);
-        path[1] = address(_usdc);
+        path[0] = address(_usdc);
+        path[1] = address(_oburn);
 
         uint256 amountUSDCNeeded = amountUSDC;
         uint256 oburnBuyFee = _oburn.buyFee();
-        uint[] memory amounts = uniswapRouter.getAmountsIn(amountOBURN, path);
+        uint[] memory amounts = new uint[](2);
 
         if (amountUSDC == 0) {
+            amounts = quickSwapRouter.getAmountsIn(amountOBURN, path);
             amountUSDCNeeded = amounts[0] * ((100 + slippage) / 100);
         }
 
@@ -88,16 +88,22 @@ contract OburnDEX is Pausable, Ownable {
         uint256 amountUSDCAfterTax = amountUSDCNeeded * (100 - oburnBuyFee) / 100;
 
         if (amountUSDC > 0) {
-            amounts = uniswapRouter.swapExactTokensForTokens(
+            uint256 minimumOBURNNeeded = 0;
+
+            if (amountOBURN > 100) {
+                minimumOBURNNeeded = amountOBURN * (100 - slippage - oburnBuyFee) / 100;
+            }
+
+            amounts = quickSwapRouter.swapExactTokensForTokens(
                 amountUSDCAfterTax,
-                amountOBURN * (100 - slippage - oburnBuyFee) / 100,
+                minimumOBURNNeeded,
                 path,
                 address(this),
                 block.timestamp
             );
         }
         else {
-            amounts = uniswapRouter.swapTokensForExactTokens(
+            amounts = quickSwapRouter.swapTokensForExactTokens(
                 amountOBURN * (100 - oburnBuyFee) / 100,
                 amountUSDCAfterTax,
                 path,
@@ -126,30 +132,37 @@ contract OburnDEX is Pausable, Ownable {
         require(amountOBURN > 0 || amountUSDC > 0, "Either the amount of OBURN to buy or the amount of USDC to sell must be specified.");
 
         address[] memory path = new address[](2);
-        path[0] = address(_usdc);
-        path[1] = address(_oburn);
+        path[0] = address(_oburn);
+        path[1] = address(_usdc);
 
         uint256 amountOBURNNeeded = amountOBURN;
         uint256 oburnSellFee = _oburn.sellFee();
-        uint[] memory amounts = uniswapRouter.getAmountsIn(amountUSDC, path);
+        uint[] memory amounts = new uint[](2);
 
         if (amountOBURN == 0) {
+            amounts = quickSwapRouter.getAmountsIn(amountUSDC, path);
             amountOBURNNeeded = amounts[0] * ((100 + slippage) / 100);
         }
 
         _oburn.transferFrom(msg.sender, address(this), amountOBURNNeeded);
 
         if (amountOBURN > 0) {
-            amounts = uniswapRouter.swapExactTokensForTokens(
+            uint256 minimumUSDCNeeded = 0;
+
+            if (amountUSDC > 100) {
+                minimumUSDCNeeded = amountUSDC * (100 - slippage) / 100;
+            }
+
+            amounts = quickSwapRouter.swapExactTokensForTokens(
                 amountOBURNNeeded,
-                amountUSDC * (100 - slippage) / 100,
+                minimumUSDCNeeded,
                 path,
                 address(this),
                 block.timestamp
             );
         }
         else {
-            amounts = uniswapRouter.swapTokensForExactTokens(
+            amounts = quickSwapRouter.swapTokensForExactTokens(
                 amountUSDC,
                 amountOBURNNeeded,
                 path,
@@ -193,11 +206,11 @@ contract OburnDEX is Pausable, Ownable {
     */
     function exemptAddressFromFees(address user, bool exempt) public onlyOwner {
         require(user != address(0), "Exempt user cannot be the zero address.");
-        require(_addressesExemptFromFees[excludedAddress] != exempt, "Already set to this value.");
+        require(_addressesExemptFromFees[user] != exempt, "Already set to this value.");
 
-        _addressesExemptFromFees[excludedAddress] = exempt;
+        _addressesExemptFromFees[user] = exempt;
 
-        emit ExemptAddressFromFees(excludedAddress, exempt);
+        emit ExemptAddressFromFees(user, exempt);
     }
 
     /**

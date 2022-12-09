@@ -6,10 +6,18 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title Generic token smart contract for PreSend testing
+ * @title Generic token smart contract for testing
  */
 contract MockToken is ERC20, Ownable {
     constructor() ERC20("GenericToken", "GNRC") {
         _mint(msg.sender, 10 ** 40);
     }
+
+    function buyFee() external view returns (uint8) {
+        return 10;
+    }
+    
+    function sellFee() external view returns (uint8) {
+        return 10;
+    }    
 }
