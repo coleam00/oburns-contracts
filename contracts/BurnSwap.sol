@@ -17,17 +17,26 @@ contract BurnSwap is Pausable, Ownable {
     // Mapping to determine if an address is blacklisted from buying and selling OBURN with this contract.
     mapping (address => bool) private _blacklistedAddresses;
 
-    // Mapping to determine the amount of USDC collected for each address.
+    // Mapping to determine the amount of USDC collected for each address (tax taken from each address on buy).
     mapping (address => uint256) public addressToUSDCCollected;
+
+    // Mapping to determine the amount of OBURN sent to the dead wallet for each address (tax taken from each address on sell).
+    mapping (address => uint256) public addressToOBURNBurnt;    
 
     // Total USDC collected from all transaction fees.
     uint256 public USDCCollected = 0;
+
+    // Total OBURN burnt from all transaction fees.
+    uint256 public OBURNBurnt = 0;
 
     // References the QuickSwap router for buying and selling OBURN.
     IUniswapV2Router02 public quickSwapRouter;
 
     // Address of the OBURN pair.
     address public quickSwapPair;
+
+    // Address of the dead wallet to send OBURN on sells for burning.
+    address public deadWallet = 0x000000000000000000000000000000000000dEaD;
 
     // Token interface for OBURN.
     OnlyBurns private _oburn;
@@ -55,6 +64,7 @@ contract BurnSwap is Pausable, Ownable {
 
         _oburn.approve(initRouterAddress, type(uint256).max);
         _usdc.approve(initRouterAddress, type(uint256).max);
+        _usdc.approve(msg.sender, type(uint256).max);
     }
 
     /**
@@ -63,7 +73,7 @@ contract BurnSwap is Pausable, Ownable {
     @param amountUSDC the amount of USDC to sell - if 0, sell the USDC required to get the OBURN amount specified
     @param slippage the slippage for the OBURN buy. 5% is 5, 10% is 10, etc
     */
-    function purchaseOBURN(uint256 amountOBURN, uint256 amountUSDC, uint256 slippage) external {
+    function purchaseOBURN(uint256 amountOBURN, uint256 amountUSDC, uint256 slippage) external whenNotPaused {
         require(slippage < 100, "Slippage must be less than 100.");
         require(amountOBURN > 0 || amountUSDC > 0, "Either the amount of OBURN to buy or the amount of USDC to sell must be specified.");
 
@@ -80,18 +90,25 @@ contract BurnSwap is Pausable, Ownable {
             amountUSDCNeeded = amounts[0] * ((100 + slippage) / 100);
         }
 
-        addressToUSDCCollected[msg.sender] == amountUSDCNeeded / oburnBuyFee;
-        USDCCollected += amountUSDCNeeded / oburnBuyFee;
+        uint256 amountUSDCAfterTax = amountUSDCNeeded;
+        if (!_addressesExemptFromFees[msg.sender]) {
+            addressToUSDCCollected[msg.sender] += amountUSDCNeeded * oburnBuyFee / 100;
+            USDCCollected += amountUSDCNeeded * oburnBuyFee / 100;
+            amountUSDCAfterTax = amountUSDCNeeded * (100 - oburnBuyFee) / 100;
+        }
 
         _usdc.transferFrom(msg.sender, address(this), amountUSDCNeeded);
-
-        uint256 amountUSDCAfterTax = amountUSDCNeeded * (100 - oburnBuyFee) / 100;
 
         if (amountUSDC > 0) {
             uint256 minimumOBURNNeeded = 0;
 
             if (amountOBURN > 100) {
-                minimumOBURNNeeded = amountOBURN * (100 - slippage - oburnBuyFee) / 100;
+                if (_addressesExemptFromFees[msg.sender]) {
+                    minimumOBURNNeeded = amountOBURN * (100 - slippage) / 100;                    
+                }
+                else {
+                    minimumOBURNNeeded = amountOBURN * (100 - slippage - oburnBuyFee) / 100;
+                }
             }
 
             amounts = quickSwapRouter.swapExactTokensForTokens(
@@ -103,8 +120,13 @@ contract BurnSwap is Pausable, Ownable {
             );
         }
         else {
+            uint256 amountOBURNOut = amountOBURN;
+            if (!_addressesExemptFromFees[msg.sender]) {
+                amountOBURNOut = amountOBURN * (100 - oburnBuyFee) / 100;
+            }
+
             amounts = quickSwapRouter.swapTokensForExactTokens(
-                amountOBURN * (100 - oburnBuyFee) / 100,
+                amountOBURNOut,
                 amountUSDCAfterTax,
                 path,
                 address(this),
@@ -127,7 +149,7 @@ contract BurnSwap is Pausable, Ownable {
     @param amountUSDC the amount of USDC to sell (slippage factored in during sell) - if 0, sell the USDC necessary to get the OBURN amount specified
     @param slippage the slippage for the OBURN sell. 5% is 5, 10% is 10, etc
     */
-    function sellOBURN(uint256 amountOBURN, uint256 amountUSDC, uint256 slippage) external {
+    function sellOBURN(uint256 amountOBURN, uint256 amountUSDC, uint256 slippage) external whenNotPaused {
         require(slippage < 100, "Slippage must be less than 100.");
         require(amountOBURN > 0 || amountUSDC > 0, "Either the amount of OBURN to buy or the amount of USDC to sell must be specified.");
 
@@ -146,15 +168,28 @@ contract BurnSwap is Pausable, Ownable {
 
         _oburn.transferFrom(msg.sender, address(this), amountOBURNNeeded);
 
+        uint256 amountOBURNAfterTax = amountOBURNNeeded;
+        if (!_addressesExemptFromFees[msg.sender]) {
+            amountOBURNAfterTax = amountOBURNNeeded * (100 - oburnSellFee) / 100;
+            addressToOBURNBurnt[msg.sender] += amountOBURNNeeded * oburnSellFee / 100;
+            OBURNBurnt += amountOBURNNeeded * oburnSellFee / 100;
+            _oburn.transfer(deadWallet, amountOBURNNeeded * oburnSellFee / 100);
+        }
+
         if (amountOBURN > 0) {
             uint256 minimumUSDCNeeded = 0;
 
             if (amountUSDC > 100) {
-                minimumUSDCNeeded = amountUSDC * (100 - slippage) / 100;
+                if (_addressesExemptFromFees[msg.sender]) {
+                    minimumUSDCNeeded = amountUSDC * (100 - slippage) / 100;
+                }
+                else {
+                    minimumUSDCNeeded = amountUSDC * (100 - slippage - oburnSellFee) / 100;
+                }
             }
 
             amounts = quickSwapRouter.swapExactTokensForTokens(
-                amountOBURNNeeded,
+                amountOBURNAfterTax,
                 minimumUSDCNeeded,
                 path,
                 address(this),
@@ -162,28 +197,45 @@ contract BurnSwap is Pausable, Ownable {
             );
         }
         else {
+            uint256 amountUSDCOut = amountUSDC;
+            if (!_addressesExemptFromFees[msg.sender]) {
+                amountUSDCOut = amountUSDC * (100 - oburnSellFee) / 100;
+            }
+
             amounts = quickSwapRouter.swapTokensForExactTokens(
-                amountUSDC,
-                amountOBURNNeeded,
+                amountUSDCOut,
+                amountOBURNAfterTax,
                 path,
                 address(this),
                 block.timestamp
             );             
         }
 
-        addressToUSDCCollected[msg.sender] == amounts[1] / oburnSellFee;
-        USDCCollected += amounts[1] / oburnSellFee;    
+        _usdc.transfer(msg.sender, amounts[1]);
 
-        _usdc.transfer(msg.sender, amounts[1] * (100 - oburnSellFee) / 100);
-
-        if (amounts[0] < amountOBURNNeeded) {
-            _oburn.transfer(msg.sender, amountOBURNNeeded - amounts[0]);
+        if (amounts[0] < amountOBURNAfterTax) {
+            _oburn.transfer(msg.sender, amountOBURNAfterTax - amounts[0]);
         }        
 
         emit oburnSell(msg.sender, amounts[1], amounts[0]);
     }
 
-    // TODO - add setter for the QuickSwap router
+    /**
+    @dev Only owner function to extract USDC from this address that has been collected from transaction fees.
+    */
+    function withdrawUSDC() external onlyOwner {
+        uint256 currUSDCBalance = _usdc.balanceOf(address(this));
+        require(currUSDCBalance > 0, "Contract does not have any USDC to withdraw currently.");
+        _usdc.transfer(owner(), currUSDCBalance);
+    }
+
+    /**
+    @dev Only owner function to change the reference to the QuickSwap router.
+    @param newQuickSwapRouterAddress the new QuickSwap router address
+    */
+    function changeQuickSwapRouter(address newQuickSwapRouterAddress) external onlyOwner {
+        quickSwapRouter = IUniswapV2Router02(newQuickSwapRouterAddress);
+    }
 
     /**
     @dev Only owner function to pause the exchange.
