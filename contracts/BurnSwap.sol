@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./oburn.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 
 contract BurnSwap is Pausable, Ownable {
     // Mapping to determine which addresses are exempt from the USDC fee taken upon buys and sells in this contract.
@@ -76,6 +75,7 @@ contract BurnSwap is Pausable, Ownable {
     function purchaseOBURN(uint256 amountOBURN, uint256 amountUSDC, uint256 slippage) external whenNotPaused {
         require(slippage < 100, "Slippage must be less than 100.");
         require(amountOBURN > 0 || amountUSDC > 0, "Either the amount of OBURN to buy or the amount of USDC to sell must be specified.");
+        require(!_blacklistedAddresses[msg.sender], "You have been blacklisted from trading OBURN through this contract.");
 
         address[] memory path = new address[](2);
         path[0] = address(_usdc);
@@ -152,6 +152,7 @@ contract BurnSwap is Pausable, Ownable {
     function sellOBURN(uint256 amountOBURN, uint256 amountUSDC, uint256 slippage) external whenNotPaused {
         require(slippage < 100, "Slippage must be less than 100.");
         require(amountOBURN > 0 || amountUSDC > 0, "Either the amount of OBURN to buy or the amount of USDC to sell must be specified.");
+        require(!_blacklistedAddresses[msg.sender], "You have been blacklisted from trading OBURN through this contract.");
 
         address[] memory path = new address[](2);
         path[0] = address(_oburn);
