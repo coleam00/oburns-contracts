@@ -15,7 +15,8 @@ VERIFY_NETWORKS = [
     "fantom",
     "avalanche",
     "binance-testnet",
-    "polygon-test-custom"
+    "polygon-test-custom",
+    "bsc-main"
 ]
 
 
