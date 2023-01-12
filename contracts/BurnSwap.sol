@@ -7,23 +7,23 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./oburn.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "../interfaces/IUniswapV2Router02.sol";
 
 contract BurnSwap is Pausable, Ownable {
-    // Mapping to determine which addresses are exempt from the USDC fee taken upon buys and sells in this contract.
+    // Mapping to determine which addresses are exempt from the BUSD fee taken upon buys and sells in this contract.
     mapping (address => bool) private _addressesExemptFromFees;
 
     // Mapping to determine if an address is blacklisted from buying and selling OBURN with this contract.
     mapping (address => bool) private _blacklistedAddresses;
 
-    // Mapping to determine the amount of USDC collected for each address (tax taken from each address on buy).
-    mapping (address => uint256) public addressToUSDCCollected;
+    // Mapping to determine the amount of BUSD collected for each address (tax taken from each address on buy).
+    mapping (address => uint256) public addressToBUSDCollected;
 
     // Mapping to determine the amount of OBURN sent to the dead wallet for each address (tax taken from each address on sell).
     mapping (address => uint256) public addressToOBURNBurnt;    
 
-    // Total USDC collected from all transaction fees.
-    uint256 public USDCCollected = 0;
+    // Total BUSD collected from all transaction fees.
+    uint256 public BUSDCollected = 0;
 
     // Total OBURN burnt from all transaction fees.
     uint256 public OBURNBurnt = 0;
@@ -40,8 +40,8 @@ contract BurnSwap is Pausable, Ownable {
     // Token interface for OBURN.
     OnlyBurns private _oburn;
 
-    // Token interface for USDC.
-    IERC20 private _usdc;
+    // Token interface for BUSD.
+    IERC20 private _busd;
 
     // Event to emit when a user is made exempt or included again in fees.
     event ExemptAddressFromFees(address indexed newAddress, bool indexed value);
@@ -49,57 +49,57 @@ contract BurnSwap is Pausable, Ownable {
     // Event to emit whenever someone is added or removed from the blacklist.
     event AddOrRemoveUserFromBlacklist(address indexed user, bool indexed blacklisted);
 
-    // Event to emit whenever OBURN is bought with USDC.
-    event oburnBuy(address indexed user, uint256 oburnAmount, uint256 usdcAmount);
+    // Event to emit whenever OBURN is bought with BUSD.
+    event oburnBuy(address indexed user, uint256 oburnAmount, uint256 busdAmount);
 
-    // Event to emit whenever OBURN is sold for USDC.
-    event oburnSell(address indexed user, uint256 oburnAmount, uint256 usdcAmount);
+    // Event to emit whenever OBURN is sold for BUSD.
+    event oburnSell(address indexed user, uint256 oburnAmount, uint256 busdAmount);
 
-    constructor(address initRouterAddress, address initOBURNPairAddress, address payable initOBURNAddress, address initUSDCAddress) {
+    constructor(address initRouterAddress, address initOBURNPairAddress, address payable initOBURNAddress, address initBUSDAddress) {
         quickSwapRouter = IUniswapV2Router02(initRouterAddress);
         quickSwapPair = initOBURNPairAddress;
         _oburn = OnlyBurns(initOBURNAddress);
-        _usdc = IERC20(initUSDCAddress);
+        _busd = IERC20(initBUSDAddress);
 
         _oburn.approve(initRouterAddress, type(uint256).max);
-        _usdc.approve(initRouterAddress, type(uint256).max);
-        _usdc.approve(msg.sender, type(uint256).max);
+        _busd.approve(initRouterAddress, type(uint256).max);
+        _busd.approve(msg.sender, type(uint256).max);
     }
 
     /**
-    @dev Function to purchase OBURN with this contract - routes the transaction through QuickSwap and takes the fee out on the USDC side.
-    @param amountOBURN the amount of OBURN to purchase (slippage factored in during buy) - if 0, just get as much OBURN as possible with the USDC amount supplied
-    @param amountUSDC the amount of USDC to sell - if 0, sell the USDC required to get the OBURN amount specified
+    @dev Function to purchase OBURN with this contract - routes the transaction through QuickSwap and takes the fee out on the BUSD side.
+    @param amountOBURN the amount of OBURN to purchase (slippage factored in during buy) - if 0, just get as much OBURN as possible with the BUSD amount supplied
+    @param amountBUSD the amount of BUSD to sell - if 0, sell the BUSD required to get the OBURN amount specified
     @param slippage the slippage for the OBURN buy. 5% is 5, 10% is 10, etc
     */
-    function purchaseOBURN(uint256 amountOBURN, uint256 amountUSDC, uint256 slippage) external whenNotPaused {
+    function purchaseOBURN(uint256 amountOBURN, uint256 amountBUSD, uint256 slippage) external whenNotPaused {
         require(slippage < 100, "Slippage must be less than 100.");
-        require(amountOBURN > 0 || amountUSDC > 0, "Either the amount of OBURN to buy or the amount of USDC to sell must be specified.");
+        require(amountOBURN > 0 || amountBUSD > 0, "Either the amount of OBURN to buy or the amount of BUSD to sell must be specified.");
         require(!_blacklistedAddresses[msg.sender], "You have been blacklisted from trading OBURN through this contract.");
 
         address[] memory path = new address[](2);
-        path[0] = address(_usdc);
+        path[0] = address(_busd);
         path[1] = address(_oburn);
 
-        uint256 amountUSDCNeeded = amountUSDC;
+        uint256 amountBUSDNeeded = amountBUSD;
         uint256 oburnBuyFee = _oburn.buyFee();
         uint[] memory amounts = new uint[](2);
 
-        if (amountUSDC == 0) {
+        if (amountBUSD == 0) {
             amounts = quickSwapRouter.getAmountsIn(amountOBURN, path);
-            amountUSDCNeeded = amounts[0] * ((100 + slippage) / 100);
+            amountBUSDNeeded = amounts[0] * ((100 + slippage) / 100);
         }
 
-        uint256 amountUSDCAfterTax = amountUSDCNeeded;
+        uint256 amountBUSDAfterTax = amountBUSDNeeded;
         if (!_addressesExemptFromFees[msg.sender]) {
-            addressToUSDCCollected[msg.sender] += amountUSDCNeeded * oburnBuyFee / 100;
-            USDCCollected += amountUSDCNeeded * oburnBuyFee / 100;
-            amountUSDCAfterTax = amountUSDCNeeded * (100 - oburnBuyFee) / 100;
+            addressToBUSDCollected[msg.sender] += amountBUSDNeeded * oburnBuyFee / 100;
+            BUSDCollected += amountBUSDNeeded * oburnBuyFee / 100;
+            amountBUSDAfterTax = amountBUSDNeeded * (100 - oburnBuyFee) / 100;
         }
 
-        _usdc.transferFrom(msg.sender, address(this), amountUSDCNeeded);
+        _busd.transferFrom(msg.sender, address(this), amountBUSDNeeded);
 
-        if (amountUSDC > 0) {
+        if (amountBUSD > 0) {
             uint256 minimumOBURNNeeded = 0;
 
             if (amountOBURN > 100) {
@@ -112,7 +112,7 @@ contract BurnSwap is Pausable, Ownable {
             }
 
             amounts = quickSwapRouter.swapExactTokensForTokens(
-                amountUSDCAfterTax,
+                amountBUSDAfterTax,
                 minimumOBURNNeeded,
                 path,
                 address(this),
@@ -127,7 +127,7 @@ contract BurnSwap is Pausable, Ownable {
 
             amounts = quickSwapRouter.swapTokensForExactTokens(
                 amountOBURNOut,
-                amountUSDCAfterTax,
+                amountBUSDAfterTax,
                 path,
                 address(this),
                 block.timestamp
@@ -136,34 +136,34 @@ contract BurnSwap is Pausable, Ownable {
 
         _oburn.transfer(msg.sender, amounts[1]);
 
-        if (amounts[0] < amountUSDCAfterTax) {
-            _usdc.transfer(msg.sender, amountUSDCAfterTax - amounts[0]);
+        if (amounts[0] < amountBUSDAfterTax) {
+            _busd.transfer(msg.sender, amountBUSDAfterTax - amounts[0]);
         }
 
         emit oburnBuy(msg.sender, amounts[0], amounts[1]);
     }
 
     /**
-    @dev Function to sell OBURN with this contract - routes the transaction through QuickSwap and takes the fee out on the USDC side.
-    @param amountOBURN the amount of OBURN to sell - if 0, just sell the amount of USDC supplied
-    @param amountUSDC the amount of USDC to sell (slippage factored in during sell) - if 0, sell the USDC necessary to get the OBURN amount specified
+    @dev Function to sell OBURN with this contract - routes the transaction through QuickSwap and takes the fee out on the BUSD side.
+    @param amountOBURN the amount of OBURN to sell - if 0, just sell the amount of BUSD supplied
+    @param amountBUSD the amount of BUSD to sell (slippage factored in during sell) - if 0, sell the BUSD necessary to get the OBURN amount specified
     @param slippage the slippage for the OBURN sell. 5% is 5, 10% is 10, etc
     */
-    function sellOBURN(uint256 amountOBURN, uint256 amountUSDC, uint256 slippage) external whenNotPaused {
+    function sellOBURN(uint256 amountOBURN, uint256 amountBUSD, uint256 slippage) external whenNotPaused {
         require(slippage < 100, "Slippage must be less than 100.");
-        require(amountOBURN > 0 || amountUSDC > 0, "Either the amount of OBURN to buy or the amount of USDC to sell must be specified.");
+        require(amountOBURN > 0 || amountBUSD > 0, "Either the amount of OBURN to buy or the amount of BUSD to sell must be specified.");
         require(!_blacklistedAddresses[msg.sender], "You have been blacklisted from trading OBURN through this contract.");
 
         address[] memory path = new address[](2);
         path[0] = address(_oburn);
-        path[1] = address(_usdc);
+        path[1] = address(_busd);
 
         uint256 amountOBURNNeeded = amountOBURN;
         uint256 oburnSellFee = _oburn.sellFee();
         uint[] memory amounts = new uint[](2);
 
         if (amountOBURN == 0) {
-            amounts = quickSwapRouter.getAmountsIn(amountUSDC, path);
+            amounts = quickSwapRouter.getAmountsIn(amountBUSD, path);
             amountOBURNNeeded = amounts[0] * ((100 + slippage) / 100);
         }
 
@@ -178,33 +178,33 @@ contract BurnSwap is Pausable, Ownable {
         }
 
         if (amountOBURN > 0) {
-            uint256 minimumUSDCNeeded = 0;
+            uint256 minimumBUSDNeeded = 0;
 
-            if (amountUSDC > 100) {
+            if (amountBUSD > 100) {
                 if (_addressesExemptFromFees[msg.sender]) {
-                    minimumUSDCNeeded = amountUSDC * (100 - slippage) / 100;
+                    minimumBUSDNeeded = amountBUSD * (100 - slippage) / 100;
                 }
                 else {
-                    minimumUSDCNeeded = amountUSDC * (100 - slippage - oburnSellFee) / 100;
+                    minimumBUSDNeeded = amountBUSD * (100 - slippage - oburnSellFee) / 100;
                 }
             }
 
             amounts = quickSwapRouter.swapExactTokensForTokens(
                 amountOBURNAfterTax,
-                minimumUSDCNeeded,
+                minimumBUSDNeeded,
                 path,
                 address(this),
                 block.timestamp
             );
         }
         else {
-            uint256 amountUSDCOut = amountUSDC;
+            uint256 amountBUSDOut = amountBUSD;
             if (!_addressesExemptFromFees[msg.sender]) {
-                amountUSDCOut = amountUSDC * (100 - oburnSellFee) / 100;
+                amountBUSDOut = amountBUSD * (100 - oburnSellFee) / 100;
             }
 
             amounts = quickSwapRouter.swapTokensForExactTokens(
-                amountUSDCOut,
+                amountBUSDOut,
                 amountOBURNAfterTax,
                 path,
                 address(this),
@@ -212,7 +212,7 @@ contract BurnSwap is Pausable, Ownable {
             );             
         }
 
-        _usdc.transfer(msg.sender, amounts[1]);
+        _busd.transfer(msg.sender, amounts[1]);
 
         if (amounts[0] < amountOBURNAfterTax) {
             _oburn.transfer(msg.sender, amountOBURNAfterTax - amounts[0]);
@@ -222,12 +222,12 @@ contract BurnSwap is Pausable, Ownable {
     }
 
     /**
-    @dev Only owner function to extract USDC from this address that has been collected from transaction fees.
+    @dev Only owner function to extract BUSD from this address that has been collected from transaction fees.
     */
-    function withdrawUSDC() external onlyOwner {
-        uint256 currUSDCBalance = _usdc.balanceOf(address(this));
-        require(currUSDCBalance > 0, "Contract does not have any USDC to withdraw currently.");
-        _usdc.transfer(owner(), currUSDCBalance);
+    function withdrawBUSD() external onlyOwner {
+        uint256 currBUSDBalance = _busd.balanceOf(address(this));
+        require(currBUSDBalance > 0, "Contract does not have any BUSD to withdraw currently.");
+        _busd.transfer(owner(), currBUSDBalance);
     }
 
     /**
